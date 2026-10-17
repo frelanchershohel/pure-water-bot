@@ -5,35 +5,39 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# Gemini API Configure
+# Configure Gemini Key
 GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
 if GEMINI_KEY:
-    genai.configure(api_key=GEMINI_KEY)
+    genai.configure(api_key=GEMINI_KEY.strip())
 
-# এআই এর নিয়ম ও নির্দেশাবলি
 SYSTEM_PROMPT = """
-তুমি "Pure Water Electronic" এর একজন কাস্টমার সাপোর্ট প্রতিনিধি।
-কাস্টমারের যেকোনো প্রশ্নের উত্তর প্রাঞ্জল বাংলায় দেবে।
+তুমি "Pure Water Electronic" এর কাস্টমার সাপোর্ট প্রতিনিধি।
+তোমার দায়িত্ব কাস্টমারের প্রশ্নের সঠিক ও বিনয়ী উত্তর দেওয়া।
 
-আমাদের তথ্য ও দাম:
-- Water Filters (দাম: ১২,০০০ টাকা থেকে ৩৫,০০০ টাকা)
+আমাদের ফিল্টারের দাম ও তথ্য:
 - RO Water Filter: ১৫,০০০ টাকা
-- Alkaline Filter: ১৮,০০০ টাকা
-- ডেলিভারি: সারা বাংলাদেশে হোম ডেলিভারি সার্ভিস উপলব্ধ।
+- Alkaline Water Filter: ১৮,০০০ টাকা
+- UV Water Filter: ৮,০০০ টাকা
+- অন্যান্য পানির ফিল্টার: ১২,০০০ টাকা থেকে ৩৫,০০০ টাকার মধ্যে।
+- ডেলিভারি: সারা বাংলাদেশে হোম ডেলিভারি ফ্রি।
 
-তোমার কাজ কাস্টমারকে তাদের প্রশ্ন অনুযায়ী সঠিক তথ্য দেওয়া এবং তাদের অর্ডার নিতে সাহায্য করা।
+কাস্টমার দাম (Dam / Price) জানতে চাইলে সরাসরি ফিল্টারগুলোর সঠিক দাম বলে দেবে।
 """
 
 def get_gemini_response(user_message):
     try:
+        # gemini-1.5-flash মডেল ব্যবহার করা হচ্ছে
         model = genai.GenerativeModel('gemini-1.5-flash')
-        full_prompt = f"{SYSTEM_PROMPT}\n\nCustomer: {user_message}\nResponse:"
-        response = model.generate_content(full_prompt)
-        return response.text
+        response = model.generate_content(f"{SYSTEM_PROMPT}\n\nCustomer: {user_message}\nResponse:")
+        
+        if response and response.text:
+            return response.text
+        else:
+            return "দুঃখিত, আমি আপনার প্রশ্নটি বুঝতে পারিনি। আবার চেষ্টা করুন।"
+            
     except Exception as e:
-        print(f"Gemini API Error: {e}")
-        # Gemini কাজ না করলে এই মেসেজটি যাবে
-        return "ধন্যবাদ Pure Water Electronic-এ যোগাযোগ করার জন্য। আমরা কীভাবে আপনাকে সাহায্য করতে পারি?"
+        print(f"CRITICAL GEMINI ERROR: {e}")
+        return f"আমাদের সব ধরনের ওয়াটার ফিল্টারের দাম ১২,০০০ টাকা থেকে ৩৫,০০০ টাকা পর্যন্ত। RO Filter: ১৫,০০০ টাকা, Alkaline Filter: ১৮,০০০ টাকা। আপনি কোনটি নিতে চান?"
 
 @app.route('/webhook', methods=['GET'])
 def verify():
@@ -53,11 +57,7 @@ def webhook():
                 sender_id = messaging_event.get("sender", {}).get("id")
                 if messaging_event.get("message") and messaging_event["message"].get("text"):
                     user_text = messaging_event["message"]["text"]
-                    
-                    # Gemini থেকে উত্তর আনা
                     bot_reply = get_gemini_response(user_text)
-                    
-                    # কাস্টমারকে মেসেজ পাঠানো
                     send_message(sender_id, bot_reply)
     return "EVENT_RECEIVED", 200
 
