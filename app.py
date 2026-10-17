@@ -1,39 +1,45 @@
 import os
 import requests
 from flask import Flask, request
-import google.generativeai as genai
+from google import genai
 
 app = Flask(__name__)
 
-# Configure Gemini Key
+# New Google GenAI Client Configuration
 GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
-if GEMINI_KEY:
-    genai.configure(api_key=GEMINI_KEY.strip())
+client = genai.Client(api_key=GEMINI_KEY.strip()) if GEMINI_KEY else None
 
 SYSTEM_PROMPT = """
-তুমি "Pure Water Electronic" এর কাস্টমার সাপোর্ট প্রতিনিধি।
-তোমার দায়িত্ব কাস্টমারের প্রশ্নের সঠিক ও বিনয়ী উত্তর দেওয়া।
+তুমি "Pure Water Electronic" এর একজন কাস্টমার সাপোর্ট প্রতিনিধি।
+তোমার কাজ কাস্টমারের প্রশ্ন বুঝে সঠিক ও বিনয়ী উত্তর দেওয়া।
 
 আমাদের ফিল্টারের দাম ও তথ্য:
 - RO Water Filter: ১৫,০০০ টাকা
 - Alkaline Water Filter: ১৮,০০০ টাকা
 - UV Water Filter: ৮,০০০ টাকা
-- অন্যান্য পানির ফিল্টার: ১২,০০০ টাকা থেকে ৩৫,০০০ টাকার মধ্যে।
-- ডেলিভারি: সারা বাংলাদেশে হোম ডেলিভারি ফ্রি।
+- অন্যান্য সকল ওয়াটার ফিল্টার: ১২,০০০ টাকা থেকে ৩৫,০০০ টাকার মধ্যে।
+- ডেলিভারি: সারা বাংলাদেশে ফ্রি হোম ডেলিভারি।
 
-কাস্টমার দাম (Dam / Price) জানতে চাইলে সরাসরি ফিল্টারগুলোর সঠিক দাম বলে দেবে।
+কাস্টমার দাম (Dam / Price) জানতে চাইলে সরাসরি ফিল্টারগুলোর আসল দাম উল্লেখ করে উত্তর দেবে।
 """
 
 def get_gemini_response(user_message):
     try:
-        # gemini-1.5-flash মডেল ব্যবহার করা হচ্ছে
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content(f"{SYSTEM_PROMPT}\n\nCustomer: {user_message}\nResponse:")
+        if not client:
+            return "আমাদের সব ধরনের ওয়াটার ফিল্টারের দাম ১২,০০০ টাকা থেকে ৩৫,০০০ টাকা পর্যন্ত।"
+            
+        full_prompt = f"{SYSTEM_PROMPT}\n\nCustomer: {user_message}\nResponse:"
+        
+        # New SDK model format
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=full_prompt,
+        )
         
         if response and response.text:
             return response.text
         else:
-            return "দুঃখিত, আমি আপনার প্রশ্নটি বুঝতে পারিনি। আবার চেষ্টা করুন।"
+            return "আমাদের ওয়াটার ফিল্টারের দাম ১২,০০০ টাকা থেকে ৩৫,০০০ টাকা পর্যন্ত। আপনি কোনটি সম্পর্কে জানতে চান?"
             
     except Exception as e:
         print(f"CRITICAL GEMINI ERROR: {e}")
