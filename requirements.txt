@@ -1,3 +1,5 @@
+Plaintext
 Flask
 requests
 google-generativeai
+gunicorn
