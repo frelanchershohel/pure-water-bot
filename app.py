@@ -5,36 +5,37 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# Gemini API Config
+# Gemini API Configuration
 GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
 if GEMINI_KEY:
     genai.configure(api_key=GEMINI_KEY.strip())
 
 SYSTEM_PROMPT = """
-তুমি "Pure Water Electronic" এর কাস্টমার সাপোর্ট প্রতিনিধি।
-তোমার কাজ কাস্টমারের প্রশ্নের সঠিক ও বিনয়ী উত্তর দেওয়া।
+তুমি "Pure Water Electronic" এর একজন কাস্টমার সাপোর্ট প্রতিনিধি।
+কাস্টমার যা-ই জিজ্ঞেস করবে, তুমি নিচের নিয়ম মেনে প্রাঞ্জল বাংলায় উত্তর দেবে:
 
-আমাদের ফিল্টারের দাম ও তথ্য:
-- RO Water Filter: ১৫,০০০ টাকা
-- Alkaline Water Filter: ১৮,০০০ টাকা
-- UV Water Filter: ৮,০০০ টাকা
-- অন্যান্য পানির ফিল্টার: ১২,০০০ টাকা থেকে ৩৫,০০০ টাকার মধ্যে।
-- ডেলিভারি: সারা বাংলাদেশে হোম ডেলিভারি ফ্রি।
-
-কাস্টমার দাম (Dam / Price) বা যেকোনো তথ্য জানতে চাইলে সরাসরি ফিল্টারগুলোর সঠিক দাম ও বিবরণ বলে দেবে।
+১. আমাদের কাজ: আমরা ওয়াটার ফিল্টার বিক্রি করি ও সার্ভিসিং প্রদান করি।
+২. পণ্যের দাম ও তালিকা:
+   - RO Water Filter: ১৫,০০০ টাকা
+   - Alkaline Filter: ১৮,০০০ টাকা
+   - UV Water Filter: ৮,০০০ টাকা
+   - অন্যান্য ওয়াটার ফিল্টার: ১২,০০০ টাকা থেকে ৩৫,০০০ টাকার মধ্যে।
+৩. ডেলিভারি ও সার্ভিস: সারা বাংলাদেশে হোম ডেলিভারি ফ্রি।
+৪. কাস্টমার দাম জানতে চাইলে বা কিনতে চাইলে সরাসরি সঠিক দাম ও তথ্য জানিয়ে সাহায্য করবে।
 """
 
 def get_gemini_response(user_message):
     try:
         model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content(f"{SYSTEM_PROMPT}\n\nCustomer: {user_message}\nResponse:")
+        full_prompt = f"{SYSTEM_PROMPT}\n\nCustomer message: {user_message}\nResponse:"
+        response = model.generate_content(full_prompt)
         if response and response.text:
             return response.text
     except Exception as e:
-        print(f"Gemini Error: {e}")
+        print(f"Gemini API Error: {e}")
     
-    # ব্যাকআপ উত্তর
-    return "আমাদের সব ধরনের ওয়াটার ফিল্টারের দাম ১২,০০০ টাকা থেকে ৩৫,০০০ টাকা পর্যন্ত। RO Filter: ১৫,০০০ টাকা, Alkaline Filter: ১৮,০০০ টাকা। আপনি কোনটি সম্পর্কে জানতে চান?"
+    # ব্যাকআপ উত্তর (Gemini কোনো কারণে রেসপন্স না দিলে এটি যাবে)
+    return "আমাদের সব ধরনের ওয়াটার ফিল্টারের দাম ১২,০০০ টাকা থেকে ৩৫,০০০ টাকা পর্যন্ত। RO Filter: ১৫,০০০ টাকা, Alkaline Filter: ১৮,০০০ টাকা। আপনি কোনটি নিতে চান?"
 
 @app.route('/webhook', methods=['GET'])
 def verify():
