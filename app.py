@@ -5,34 +5,35 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# Configure Gemini
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+# Gemini API Configure
+GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
+if GEMINI_KEY:
+    genai.configure(api_key=GEMINI_KEY)
 
-# আপনার দোকানের সব নির্দেশাবলি ও পণ্যের বিস্তারিত তথ্য এখানে লিখুন
+# এআই এর নিয়ম ও নির্দেশাবলি
 SYSTEM_PROMPT = """
-তুমি "Pure Water Electronic" এর একজন সেরা কাস্টমার সাপোর্ট প্রতিনিধি। 
-কাস্টমার যা-ই জিজ্ঞেস করবে, তুমি নিচের নিয়ম মেনে সঠিকভাবে উত্তর দেবে:
+তুমি "Pure Water Electronic" এর একজন কাস্টমার সাপোর্ট প্রতিনিধি।
+কাস্টমারের যেকোনো প্রশ্নের উত্তর প্রাঞ্জল বাংলায় দেবে।
 
-১. ভাষা: সবসময় প্রাঞ্জল ও বিনয়ী বাংলায় কথা বলবে (কাস্টমার ইংলিশ বা বাংলিশে লিখলেও বাংলায় উত্তর দেবে)।
-২. আমাদের কাজ: আমরা ওয়াটার ফিল্টার বিক্রি করি ও সার্ভিসিং প্রদান করি।
-৩. পণ্যের দাম ও তালিকা:
-   -DAM KOTO
-   - 1200 TK
-   - Alkaline Filter: ১৮,০০০ টাকা
-৪. ডেলিভারি ও সার্ভিস: সারা বাংলাদেশে হোম ডেলিভারি ফ্রি।
-৫. অর্ডার করার নিয়ম: কাস্টমার কিনতে চাইলে তার নাম, ফোন নম্বর এবং ঠিকানা চাইবে।
-৬. আচরণ: সবসময় কাস্টমারকে সম্মান দিয়ে কথা বলবে এবং প্রতিটি প্রশ্নের স্পষ্ট উত্তর দেবে।
+আমাদের তথ্য ও দাম:
+- Water Filters (দাম: ১২,০০০ টাকা থেকে ৩৫,০০০ টাকা)
+- RO Water Filter: ১৫,০০০ টাকা
+- Alkaline Filter: ১৮,০০০ টাকা
+- ডেলিভারি: সারা বাংলাদেশে হোম ডেলিভারি সার্ভিস উপলব্ধ।
+
+তোমার কাজ কাস্টমারকে তাদের প্রশ্ন অনুযায়ী সঠিক তথ্য দেওয়া এবং তাদের অর্ডার নিতে সাহায্য করা।
 """
 
 def get_gemini_response(user_message):
     try:
         model = genai.GenerativeModel('gemini-1.5-flash')
-        full_prompt = f"{SYSTEM_PROMPT}\n\nCustomer message: {user_message}\nYour Response:"
+        full_prompt = f"{SYSTEM_PROMPT}\n\nCustomer: {user_message}\nResponse:"
         response = model.generate_content(full_prompt)
         return response.text
     except Exception as e:
         print(f"Gemini API Error: {e}")
-        return "ধন্যবাদ Pure Water Electronic-এ যোগাযোগ করার জন্য। আমরা আপনাকে কীভাবে সাহায্য করতে পারি?"
+        # Gemini কাজ না করলে এই মেসেজটি যাবে
+        return "ধন্যবাদ Pure Water Electronic-এ যোগাযোগ করার জন্য। আমরা কীভাবে আপনাকে সাহায্য করতে পারি?"
 
 @app.route('/webhook', methods=['GET'])
 def verify():
@@ -46,13 +47,17 @@ def verify():
 @app.route('/webhook', methods=['POST'])
 def webhook():
     data = request.get_json()
-    if data.get("object") == "page":
+    if data and data.get("object") == "page":
         for entry in data.get("entry", []):
             for messaging_event in entry.get("messaging", []):
                 sender_id = messaging_event.get("sender", {}).get("id")
                 if messaging_event.get("message") and messaging_event["message"].get("text"):
                     user_text = messaging_event["message"]["text"]
+                    
+                    # Gemini থেকে উত্তর আনা
                     bot_reply = get_gemini_response(user_text)
+                    
+                    # কাস্টমারকে মেসেজ পাঠানো
                     send_message(sender_id, bot_reply)
     return "EVENT_RECEIVED", 200
 
